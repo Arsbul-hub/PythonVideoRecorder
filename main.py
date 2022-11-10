@@ -9,7 +9,7 @@ from PyQt5 import Qt, QtCore
 from PyQt5.QtCore import QSize
 from PyQt5.QtGui import QPixmap, QImage, QMovie
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
-from Recosiner import Recording
+from Recosiner import VideoManager
 
 from design import Ui_MainWindow
 from UserData import User
@@ -21,9 +21,9 @@ class MyWidget(QMainWindow, Ui_MainWindow):
         super().__init__()
         self.setupUi(self)
         self.user_data_manager = User()
-        self.recorder = Recording(self.user_data_manager)
+        self.video_manager = VideoManager()
         self.out_folder.setText(f"Папка хранения видео: {self.user_data_manager.get_data('out_directory')}")
-        self.recorder.add_task(self.update_frame)
+        self.video_manager.add_task(self.update_frame)
 
         self.start_writing.clicked.connect(self.write_video)
         self.stop_writing.clicked.connect(self.stop_video)
@@ -37,13 +37,14 @@ class MyWidget(QMainWindow, Ui_MainWindow):
         self.recording_icon.movie().start()
 
     def write_video(self):
-        saving_filename = self.user_data_manager.get_data(
-            "out_directory") + f"/Видео{datetime.now().time().strftime('%H-%M-%S')}"
-        self.recorder.write_video(saving_filename)
+
+        self.video_manager.write()
         self.recording_icon.show()
 
     def stop_video(self):
-        self.recorder.stop_video()
+        saving_filename = self.user_data_manager.get_data(
+            "out_directory") + f"/Видео{datetime.now().time().strftime('%H-%M-%S')}"
+        self.video_manager.stop(saving_filename)
 
         self.recording_icon.hide()
 
@@ -54,11 +55,12 @@ class MyWidget(QMainWindow, Ui_MainWindow):
             self.user_data_manager.update_data("out_directory", directory)
 
     def update_frame(self):
-        pixmap = self.recorder.frame_to_pixmap(self.recorder.current_frame)
+        #print(self.video_manager.recorder.current_frame)
+        pixmap = self.video_manager.frame_to_pixmap(self.video_manager.get_frame())
         pixmap = pixmap.scaled(self.video_view.width(), self.video_view.height(), QtCore.Qt.KeepAspectRatio)
         self.video_view.setPixmap(pixmap)
 
-        self.current_fps.setText(str(self.recorder.fps))
+        self.current_fps.setText(str(self.video_manager.fps()))
 
 
 def except_hook(cls, exception, traceback):
