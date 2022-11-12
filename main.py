@@ -40,6 +40,7 @@ class MyWidget(QMainWindow, Ui_MainWindow):
     def on_change_microphone(self):
         self.video_manager.set_audio_input(self.microphones.currentIndex())
         self.user_data_manager.update_data("audio_input", self.microphones.currentIndex())
+
     def write_video(self):
         saving_filename = self.user_data_manager.get_data(
             "out_directory") + f"/Видео{datetime.now().time().strftime('%H-%M-%S')}"

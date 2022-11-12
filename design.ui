@@ -6,7 +6,7 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>1106</width>
+    <width>1108</width>
     <height>593</height>
    </rect>
   </property>
@@ -71,8 +71,8 @@
    <widget class="QPushButton" name="choose_out_folder">
     <property name="geometry">
      <rect>
-      <x>550</x>
-      <y>500</y>
+      <x>80</x>
+      <y>290</y>
       <width>121</width>
       <height>41</height>
      </rect>
@@ -89,10 +89,10 @@
    <widget class="QLabel" name="out_folder">
     <property name="geometry">
      <rect>
-      <x>30</x>
-      <y>500</y>
-      <width>511</width>
-      <height>41</height>
+      <x>10</x>
+      <y>140</y>
+      <width>281</width>
+      <height>131</height>
      </rect>
     </property>
     <property name="font">
@@ -104,7 +104,7 @@
      <string>Папка хранения видео</string>
     </property>
     <property name="alignment">
-     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+     <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignTop</set>
     </property>
    </widget>
    <widget class="QLabel" name="video_view">
@@ -207,7 +207,7 @@
     <rect>
      <x>0</x>
      <y>0</y>
-     <width>1106</width>
+     <width>1108</width>
      <height>25</height>
     </rect>
    </property>
