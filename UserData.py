@@ -4,7 +4,8 @@ import getpass
 
 class User:
     def __init__(self):
-        self.default_data = {"out_directory": f"C:/Users/{getpass.getuser()}/Videos"}
+        self.default_data = {"out_directory": f"C:/Users/{getpass.getuser()}/Videos",
+                             "audio_input": 0}
         self.all_data = self.load_data()
 
     def load_data(self):
@@ -26,4 +27,4 @@ class User:
         d = self.all_data.get(name)
         if d:
             return d
-        return "Не задано"
+        return None

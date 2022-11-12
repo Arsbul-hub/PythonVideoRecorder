@@ -2,14 +2,17 @@ import time
 from threading import Thread
 import cv2
 import numpy as np
-import pyautogui
+
 from PyQt5.QtGui import QPixmap, QImage
 
 import ctypes
 from PIL import ImageGrab, Image
 import wave
 import pyaudio
-import moviepy.editor as mpe
+
+from moviepy.audio.AudioClip import CompositeAudioClip
+from moviepy.audio.io.AudioFileClip import AudioFileClip
+from moviepy.video.io.VideoFileClip import VideoFileClip
 
 user32 = ctypes.windll.user32
 
@@ -32,14 +35,14 @@ class AudioWriter:
                                                   input=True,
                                                   input_device_index=self.microphone_id,
                                                   frames_per_buffer=self.CHUNK)
-        Thread(target=self.audio_loop).start()
 
-    def audio_loop(self):
+    def frame_sender(self):
+        if self.writing:
+            # t0 = time.perf_counter()
+            data = self.audio_stream.read(self.CHUNK)
+            self.frames.append(data)
 
-        while True:
-            if self.writing:
-                data = self.audio_stream.read(self.CHUNK)
-                self.frames.append(data)
+            # t1 = time.perf_counter()
 
     def start_writing(self):
         self.frames.clear()
@@ -73,24 +76,12 @@ class Recording:
         self.tasks = []
         self.filename = ""
 
-        Thread(target=self.frame_sender).start()
-
     def frame_sender(self):
-        while True:
 
-            t0 = time.perf_counter()
+        self.get_screenshot()
 
-            self.get_screenshot()
-
-            # print(1 / float(tr2 - tr1))
-            if self.write and self.video_writer:
-                self.video_writer.write(cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2RGB))
-
-            t1 = time.perf_counter()
-
-            self.fps = 1 / float(t1 - t0)
-
-            self.fps_list.append(self.fps)
+        if self.write and self.video_writer:
+            self.video_writer.write(cv2.cvtColor(self.current_frame, cv2.COLOR_BGR2RGB))
 
     def get_fps(self):
         return self.fps, self.fps_list
@@ -99,17 +90,14 @@ class Recording:
         try:
 
             image = ImageGrab.grab()
-
             self.current_frame = np.array(image)
 
         except:
             print("Error")
 
-    def write_video(self):
-        print(  sum(self.fps_list) / len(self.fps_list))
-        self.fps_clipper = sum(self.fps_list) / len(self.fps_list)
-        self.video_writer = cv2.VideoWriter("temp_video.mp4", self.video_codec,
-                                            sum(self.fps_list) / len(self.fps_list), self.resolution)
+    def write_video(self, fps_clip, filename):
+
+        self.video_writer = cv2.VideoWriter(f"{filename}.mp4", self.video_codec, fps_clip, self.resolution)
 
         self.write = True
 
@@ -135,45 +123,81 @@ class VideoManager:
         self.recorder = Recording()
         self.filename = ""
         self.tasks = []
-        Thread(target=self.loop).start()
+        self.fps = 0
+        self.fps_list = []
+        self.fps_clipper = 60
+        self.do_loop = True
+        Thread(target=self.main_loop).start()
+        # Thread(target=self.video_loop).start()
+        # Thread(target=self.audio_loop).start()
 
-    def fps(self):
+    def get_fps(self):
         return self.recorder.fps
+
+    def set_audio_input(self, index):
+        self.audio.microphone_id = index
 
     def add_task(self, task):
         self.tasks.append(task)
 
-    def loop(self):
-        while True:
-            #print(self.tasks)
+    def audio_loop(self):
+
+        while self.do_loop:
+            self.audio.frame_sender()
+
+    def main_loop(self):
+        try:  # Рекурсия нужна для увеличения fps
+            # while self.do_loop:
+            t0 = time.perf_counter()
+
+            self.recorder.frame_sender()
+            t1 = time.perf_counter()
+
             if self.tasks:
-                for i in self.tasks:
+                for task in self.tasks:
+                    task()
+            self.fps = 1 // float(t1 - t0)
 
-                    Thread(target=i).start()
+            self.fps_list.append(self.fps)
+        except:
+            pass
+        if self.do_loop:
+            Thread(target=self.main_loop).start()
 
-    def write(self):
-        self.recorder.write_video()
-        self.audio.start_writing()
+    def write(self, filename):
+        self.fps_clipper = int(sum(self.fps_list) / len(self.fps_list))
+        self.recorder.write_video(self.fps_clipper, filename)
+        # self.audio.start_writing()
 
-    def stop(self, filename):
-        self.audio.stop_writing()
+    def stop(self):
+
+        # self.audio.stop_writing()
 
         self.recorder.stop_video()
-        print(123)
-        Thread(target=lambda: self.save_output(filename)).start()
+        # on_start()
+        # Thread(target=lambda: self.save_output(filename, on_stop)).start()
+
     def get_frame(self):
         return self.recorder.current_frame
-    def save_output(self, filename):
-        videoclip = mpe.VideoFileClip("temp_video.mp4")
-        audioclip = mpe.AudioFileClip("temp_audio.mp3")
 
-        new_audioclip = mpe.CompositeAudioClip([audioclip])
-        videoclip.audio = new_audioclip
-        videoclip.write_videofile(filename + ".mp4")
+    # def save_output(self, filename, on_stop):
+    #     videoclip = VideoFileClip("temp_video.mp4")
+    #     audioclip = AudioFileClip("temp_audio.mp3")
+    #
+    #     new_audioclip = CompositeAudioClip([audioclip])
+    #     videoclip.audio = new_audioclip
+    #
+    #     videoclip.write_videofile(filename + ".mp4")
+    #     on_stop()
 
     def frame_to_pixmap(self, bgr_frame):
+        try:
+            height, width, channel = bgr_frame.shape
+            bytesPerLine = 3 * width
+            pixmap = QPixmap(QImage(bgr_frame.data, width, height, bytesPerLine, QImage.Format_RGB888))
+            return pixmap
+        except:
+            return QPixmap()
 
-        height, width, channel = bgr_frame.shape
-        bytesPerLine = 3 * width
-        pixmap = QPixmap(QImage(bgr_frame.data, width, height, bytesPerLine, QImage.Format_RGB888))
-        return pixmap
+    def stop_all_loops(self):
+        self.do_loop = False

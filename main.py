@@ -1,19 +1,15 @@
 import sys
-import time
-from pprint import pprint
 
-import cv2
-import numpy as np
-import pyautogui
-from PyQt5 import Qt, QtCore
-from PyQt5.QtCore import QSize
-from PyQt5.QtGui import QPixmap, QImage, QMovie
+from PyQt5 import QtCore
+
 from PyQt5.QtWidgets import QApplication, QMainWindow, QFileDialog
 from Recosiner import VideoManager
 
 from design import Ui_MainWindow
 from UserData import User
 from datetime import datetime
+
+import pyaudio
 
 
 class MyWidget(QMainWindow, Ui_MainWindow):
@@ -29,24 +25,32 @@ class MyWidget(QMainWindow, Ui_MainWindow):
         self.stop_writing.clicked.connect(self.stop_video)
         self.choose_out_folder.clicked.connect(self.set_out_folder)
 
-        self.recording_icon.setMovie(QMovie("recoding_icon.gif"))
-        dd = QtCore.QSize()
-        dd = dd.scaled(self.recording_icon.width(), self.recording_icon.height(), QtCore.Qt.KeepAspectRatio)
-        self.recording_icon.movie().setScaledSize(dd)
-        self.recording_icon.hide()
-        self.recording_icon.movie().start()
+        self.recording_state.hide()
 
+        # self.microphones = []
+        self.inputs = {}
+        p = pyaudio.PyAudio()
+        for i in range(p.get_device_count()):
+            self.inputs[p.get_device_info_by_index(i)['name']] = i
+            self.microphones.addItem(p.get_device_info_by_index(i)['name'])
+        if self.user_data_manager.get_data("audio_input"):
+            self.microphones.setCurrentIndex(self.user_data_manager.get_data("audio_input"))
+        self.microphones.currentIndexChanged.connect(self.on_change_microphone)
+
+    def on_change_microphone(self):
+        self.video_manager.set_audio_input(self.microphones.currentIndex())
+        self.user_data_manager.update_data("audio_input", self.microphones.currentIndex())
     def write_video(self):
-
-        self.video_manager.write()
-        self.recording_icon.show()
-
-    def stop_video(self):
         saving_filename = self.user_data_manager.get_data(
             "out_directory") + f"/Видео{datetime.now().time().strftime('%H-%M-%S')}"
-        self.video_manager.stop(saving_filename)
+        self.video_manager.write(saving_filename)
+        self.recording_state.show()
 
-        self.recording_icon.hide()
+    def stop_video(self):
+
+        self.video_manager.stop()
+
+        self.recording_state.hide()
 
     def set_out_folder(self):
         directory = QFileDialog.getExistingDirectory(self, "Место хранения видео", "")
@@ -55,12 +59,17 @@ class MyWidget(QMainWindow, Ui_MainWindow):
             self.user_data_manager.update_data("out_directory", directory)
 
     def update_frame(self):
-        #print(self.video_manager.recorder.current_frame)
+        # print(self.video_manager.recorder.current_frame)
+
         pixmap = self.video_manager.frame_to_pixmap(self.video_manager.get_frame())
         pixmap = pixmap.scaled(self.video_view.width(), self.video_view.height(), QtCore.Qt.KeepAspectRatio)
         self.video_view.setPixmap(pixmap)
 
-        self.current_fps.setText(str(self.video_manager.fps()))
+        self.current_fps.setText(f"FPS: {self.video_manager.fps}")
+
+    def closeEvent(self, event):
+        self.video_manager.stop_all_loops()
+        # self.connection.close()
 
 
 def except_hook(cls, exception, traceback):
